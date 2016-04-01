@@ -1,0 +1,16 @@
+#definition
+define sort int class=edu.thu.ss.logic.example.IntSort
+define sort column class=edu.thu.ss.logic.example.ColumnSort
+
+define function int add(int z, int y) class=edu.thu.ss.logic.example.Add
+
+define predicate isZero(int z) class=edu.thu.ss.logic.example.IsZero
+define predicate equals(int z, int y) class=edu.thu.ss.logic.example.Equals
+define predicate output(column c) class=edu.thu.ss.logic.example.Output
+
+#policy
+r1: G[1,2] (forall int z. equals(z, 0) imply isZero(0))
+r2: G[2,3] ((exists column c. output(c)) and (forall column c. output(c)))
+r3: G[0,2] X[3,4] (AG (!output("c1")))
+r4: G[0,3] (!isZero(add(1, 1)))
+r5: G[0,3] (isZero(add(1, 1)))
