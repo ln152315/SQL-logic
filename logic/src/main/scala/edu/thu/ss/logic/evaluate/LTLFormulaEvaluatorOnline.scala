@@ -172,25 +172,28 @@ class LTLFormulaEvaluatorOnline(val trace: Seq[QueryModel]) extends Logging {
     println("---initial:parameterMap-----"+parameterMap)
     println("---initial:resolveMap-----"+resolveMap)
     println("---initial:deriveMap-----"+deriveMap)
+    
     var break = false 
     var i=0
     while (i < trace.length && !break){
       println("---parameterMap-----"+parameterMap)
+      
       for ((k, v)<-parameterMap){
         resolveMap(k) = resolve(k, trace, resolveMap, deriveMap, i)
       }
       println("----resolveMap-----"+resolveMap)
+      
       for ((k, v)<-parameterMap){
         deriveMap(k) = derive(k, trace, resolveMap, deriveMap, i)
       }
       println("----deriveMap-----"+deriveMap)
-      println("----formula-----"+formula)
+
       formula =  if (deriveMap.contains(formula)) deriveMap(formula) else null
       
       val simplifyAnalyzers = FormulaSimplifier()
       formula = simplifyAnalyzers.simplifyTorF(formula)
       
-      //判断之前可以调之前，化简的函数，写一个更加简单的，只包含T,F关系的
+      
       if (formula == True || formula == False) {
         break = true
       }

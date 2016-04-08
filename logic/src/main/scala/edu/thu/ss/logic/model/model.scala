@@ -136,7 +136,7 @@ object QueryModel {
       state.attributeExprs.clear
       state.plan match {
         case leaf: LeafNode =>
-          //initialization
+          //initialization   
           leaf.output.foreach { attr => state.attributeExprs.put(attr, attr) }
         case proj: Project =>
           buildTransformation(state, proj.projectList, state.children(0))
@@ -144,6 +144,7 @@ object QueryModel {
           buildTransformation(state, agg.aggregateExpressions, state.children(0))
         case _ => state.children.foreach { state.attributeExprs ++= _.attributeExprs }
       }
+
     }
   }
 
