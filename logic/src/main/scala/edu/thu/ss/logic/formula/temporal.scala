@@ -118,9 +118,9 @@ case class X(interval: Seq[String], child: Formula) extends UnaryFormula with Te
 
 case class U(interval: Seq[String], left: Formula, right: Formula) extends BinaryFormula with TemporalFormula {
   val nodeName = "U"
-  var newListSatisfied = 0.toLong
-  var lower = interval.head.toLong
-  var upper = interval.last.toLong
+  var newListSatisfied = 0.toInt
+  var lower = interval.head.toInt
+  var upper = interval.last.toInt
   override def toString = s"($left $nodeName[$lower, $upper] $right)"
   
 }
@@ -151,9 +151,9 @@ case class pX(interval: Seq[String], child: Formula) extends UnaryFormula with T
 
 case class pU(interval: Seq[String], left: Formula, right: Formula) extends BinaryFormula with TemporalFormula {
   val nodeName = "pU"
-  var newListSatisfied = 0.toLong
-  var lower = interval.head.toLong
-  var upper = interval.last.toLong
+  var newListSatisfied = 0.toInt
+  var lower = interval.head.toInt
+  var upper = interval.last.toInt
   override def toString = s"($left $nodeName[$lower, $upper] $right)"
 }
 

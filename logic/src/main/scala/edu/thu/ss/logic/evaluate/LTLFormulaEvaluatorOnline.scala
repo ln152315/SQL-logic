@@ -10,214 +10,250 @@ import edu.thu.ss.logic.model.QueryModel
 import edu.thu.ss.logic.model.State
 import edu.thu.ss.logic.util.Logging
 import edu.thu.ss.logic.util.LogicUtils
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.HashMap
-/**
- * a context for each model  
- */
-//class LTLEvaluationContext(val trace: Seq[QueryModel]) {
-//
-//  private val valuation = new ListBuffer[mutable.HashMap[Formula, Boolean]]
-//
-//
-//  def clear {
-//    valuation.clear
-//  }
-//  def printf() {
-//    println(valuation.length)
-//    var i = 0;
-//    valuation.foreach{
-//      s => {
-//        i += 1
-//        println(s"$i－－－－－：$s")
-//      }
-//    }
-//  }
-//  
-//  def getValue(index:Int, formula: Formula) = valuation(index).get(formula)
-//
-//  def setValue(index:Int, formula: Formula, value: Boolean) {
-//    if (index < valuation.length){
-//      valuation(index).put(formula, value)
-//    }
-//    else {
-//      valuation += new mutable.HashMap[Formula, Boolean]
-//      valuation(index).put(formula, value)
-//      println(valuation.length)
-//      println(s"$index,  $formula,  $value")
-//    }
-//  }
-//  
-//  def getLength() = valuation.length
-//
-//
-//}
+import edu.thu.ss.logic.policy.Rule
+
 
 // online
 
-class LTLFormulaEvaluatorOnline(val trace: Seq[QueryModel]) extends Logging {
-  private val parameterMap = new HashMap[Formula, Formula]
-
-  private def findParameters(formula: Formula){
+class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
+  private var formula = rule.formula.mapChildren { x => x }
+  
+  private var subFormulasList = ArrayBuffer[Formula](True, False)
+  private var resolveList = Array[Formula]()
+  private var deriveList = Array[Formula]()
+  
+  private var lastFormula :Formula= rule.formula.mapChildren { x => x }
+  
+  private var lastResolveList = Array[Formula]()
+  private var lastDeriveList = Array[Formula]()
+  
+  private var trace :List[QueryModel] = List()
+  
+  private var isInit = false
+  
+  private def init(){
+    findSubFormulas(formula)
+//    LTLFormulaEvaluatorOnline.allSubFormulasList(rule.name) = subFormulasList
+    resolveList =new Array[Formula](subFormulasList.size)
+    deriveList =new Array[Formula](subFormulasList.size)
+    lastResolveList =new Array[Formula](subFormulasList.size)
+    lastDeriveList =new Array[Formula](subFormulasList.size)
+  }
+  
+  private def findSubFormulas(formula: Formula){
       formula match {
         case Not(child) =>
-          if (!parameterMap.contains(formula)) parameterMap(formula) = True
-          findParameters(child)
+          findSubFormulas(child)
+          if (!subFormulasList.contains(formula)) subFormulasList.append(formula)
 
         case And(left, right) =>
-          if (!parameterMap.contains(formula)) parameterMap(formula) = True
-          findParameters(left)
-          findParameters(right)
+          findSubFormulas(left)
+          findSubFormulas(right)
+          if (!subFormulasList.contains(formula)) subFormulasList.append(formula)
 
         case Or(left, right) =>
-          if (!parameterMap.contains(formula)) parameterMap(formula) = True
-          findParameters(left)
-          findParameters(right)
+          findSubFormulas(left)
+          findSubFormulas(right)
+          if (!subFormulasList.contains(formula)) subFormulasList.append(formula)
 
         case Imply(left, right) =>
-          if (!parameterMap.contains(formula)) parameterMap(formula) = True
-          findParameters(left)
-          findParameters(right)
+          findSubFormulas(left)
+          findSubFormulas(right)
+          if (!subFormulasList.contains(formula)) subFormulasList.append(formula)
 
         //temporal part
         case _: X =>
           val x = formula.asInstanceOf[X]
-          val upper = x.upper.toInt
-          val lower = x.lower.toInt
+          findSubFormulas(x.child)
+          val upper = x.upper
+          val lower = x.lower
+          for(i<- 0 to upper-lower){     
+            val tmpX = x.mapChildren { x => x }.asInstanceOf[X]
+            tmpX.lower = 0
+            tmpX.upper = i
+            if (!subFormulasList.contains(tmpX)) subFormulasList.append(tmpX)
+          }
           for(i<- 0 to lower){
-            for(j<- 0 to upper){
-              if(i <= j){
-                val tmpX = X(Seq(i.toString(), j.toString()), x.child)
-//                tmpX.upper = j
-//                tmpX.lower = i
-                if (!parameterMap.contains(tmpX)) parameterMap(tmpX) = True
-                findParameters(x.child)
-              }
-              
-            }
+            val tmpX = x.mapChildren { x => x }.asInstanceOf[X]
+            tmpX.lower = i
+            tmpX.upper = i+upper-lower
+            if (!subFormulasList.contains(tmpX)) subFormulasList.append(tmpX)
+
           }
 
+
         case _: U =>
-          println("----tag")
           val u = formula.asInstanceOf[U]
-          val upper = u.upper.toInt
-          val lower = u.lower.toInt
-          for(i<- 0 to lower){
-            for(j<- 0 to upper){
-              if(i <= j){
-                val tmpU = U(Seq(i.toString(), j.toString()), u.left, u.right)
-//                tmpU.upper = j
-//                tmpU.lower = i
-                println("---i:"+tmpU.lower+"---j:"+tmpU.upper)
-                println("---tmpU----"+tmpU)
-                if (!parameterMap.contains(tmpU)) {
-                  println("success")
-                  parameterMap(tmpU) = True
-                  findParameters(u.left)
-                  findParameters(u.right)
-                }
-              }
-              
-            }
+          findSubFormulas(u.left)
+          findSubFormulas(u.right)
+          val upper = u.upper
+          val lower = u.lower
+          for(i<- 0 to upper-lower){             
+            val tmpU = u.mapChildren { x => x }.asInstanceOf[U]
+            tmpU.lower = 0
+            tmpU.upper = i
+            if (!subFormulasList.contains(tmpU)) subFormulasList.append(tmpU)
+
           }
+          for(i<- 0 to lower){
+            val tmpU = u.mapChildren { x => x }.asInstanceOf[U]
+            tmpU.lower = i
+            tmpU.upper = i+upper-lower
+            if (!subFormulasList.contains(tmpU)) subFormulasList.append(tmpU)
+          }
+          
         
         case _: pX =>
           val px = formula.asInstanceOf[pX]
-          val upper = px.upper.toInt
-          val lower = px.lower.toInt
+          findSubFormulas(px.child)
+          val upper = px.upper
+          val lower = px.lower
+          for(i<- 0 to upper-lower){     
+            val tmpPX = px.mapChildren { x => x }.asInstanceOf[pX]
+            tmpPX.lower = 0
+            tmpPX.upper = i
+            if (!subFormulasList.contains(tmpPX)) subFormulasList.append(tmpPX)
+          }
           for(i<- 0 to lower){
-            for(j<- 0 to upper){
-              if(i <= j){
-                val tmpPX = pX(Seq(i.toString(), j.toString()), px.child)
-//                tmpPX.upper = j
-//                tmpPX.lower = i
-                if (!parameterMap.contains(tmpPX)) parameterMap(tmpPX) = True
-                findParameters(px.child)
-              }
-              
-            }
+            val tmpPX = px.mapChildren { x => x }.asInstanceOf[pX]
+            tmpPX.lower = i
+            tmpPX.upper = i+upper-lower
+            if (!subFormulasList.contains(tmpPX)) subFormulasList.append(tmpPX)
           }
                 
         case _: pU =>
           val pu = formula.asInstanceOf[pU]
-          val upper = pu.upper.toInt
-          val lower = pu.lower.toInt
+          findSubFormulas(pu.left)
+          findSubFormulas(pu.right)
+          val upper = pu.upper
+          val lower = pu.lower
+          for(i<- 0 to upper-lower){     
+            val tmpPU = pu.mapChildren { x => x }.asInstanceOf[pU]
+            tmpPU.lower = 0
+            tmpPU.upper = i
+            if (!subFormulasList.contains(tmpPU)) subFormulasList.append(tmpPU)
+          }
           for(i<- 0 to lower){
-            for(j<- 0 to upper){
-              if(i <= j){
-                val tmpPU = pU(Seq(i.toString(), j.toString()), pu.left, pu.right)
-//                tmpPU.upper = j
-//                tmpPU.lower = i
-                if (!parameterMap.contains(tmpPU)) parameterMap(tmpPU) = True
-                findParameters(pu.left)
-                findParameters(pu.right)
-              }
-              
-            }
+            val tmpPU = pu.mapChildren { x => x }.asInstanceOf[pU]
+            tmpPU.lower = i
+            tmpPU.upper = i+upper-lower
+            if (!subFormulasList.contains(tmpPU)) subFormulasList.append(tmpPU)
           }
           
         case _ =>
-          if (!parameterMap.contains(formula)) parameterMap(formula) = True
+          if (!subFormulasList.contains(formula)) subFormulasList.append(formula)
 
       }
   }
   
-  def monitor(formulaVal: Formula): Formula = {
-    parameterMap.clear()
-    var formula = formulaVal
-    findParameters(formula)
+  def monitor(model: QueryModel): Formula = {
+    if (!isInit){
+      init()
+      isInit = true
+    }
     
-    val resolveMap = parameterMap.clone()
-    val deriveMap = parameterMap.clone()
-    println("---initial:parameterMap-----"+parameterMap)
-    println("---initial:resolveMap-----"+resolveMap)
-    println("---initial:deriveMap-----"+deriveMap)
-    
-    var break = false 
-    var i=0
-    while (i < trace.length && !break){
-      println("---parameterMap-----"+parameterMap)
-      
-      for ((k, v)<-parameterMap){
-        resolveMap(k) = resolve(k, trace, resolveMap, deriveMap, i)
-      }
-      println("----resolveMap-----"+resolveMap)
-      
-      for ((k, v)<-parameterMap){
-        deriveMap(k) = derive(k, trace, resolveMap, deriveMap, i)
-      }
-      println("----deriveMap-----"+deriveMap)
+    trace = trace :+ model
 
-      formula =  if (deriveMap.contains(formula)) deriveMap(formula) else null
+    
+    println("---initial:subFormulasList-----"+subFormulasList)
+    println("---initial:resolveList-----"+resolveList.toBuffer)
+    println("---initial:deriveList-----"+deriveList.toBuffer)
+    println("---initial:lastresolveList-----"+lastResolveList.toBuffer)
+    println("---initial:lastderiveList-----"+lastDeriveList.toBuffer)
+    println("---initial:formula-----"+formula)
+    println("---initial:lastFormula-----"+lastFormula)
+    var i = trace.length-2
+    println("---index:-------:"+i)
+    
+    if(i<0){
+      i = 0
+      for (k<-0 until subFormulasList.length){
+        resolveList(k) = resolve(subFormulasList(k), trace, i)
+      }
+      for (k<-0 until subFormulasList.length){
+        deriveList(k) = derive(subFormulasList(k), trace, i)
+      }
+      formula =  deriveList(subFormulasList.indexOf(formula))
       
       val simplifyAnalyzers = FormulaSimplifier()
-      formula = simplifyAnalyzers.simplifyTorF(formula)
-      
       
       if (formula == True || formula == False) {
-        break = true
+        return formula
       }
-      i = i+1
-        
+      else{
+        return Unknown
+      }
+      
     }
-    formula
+    
+    resolveList = lastResolveList.clone()
+    deriveList = lastDeriveList.clone()
+
+    formula = lastFormula.mapChildren { x => x}
+    
+    for (k<-0 until subFormulasList.length){
+      resolveList(k) = resolve(subFormulasList(k), trace, i)
+    }
+      
+    for (k<-0 until subFormulasList.length){
+      deriveList(k) = derive(subFormulasList(k), trace, i)
+    }
+    
+    lastResolveList = resolveList.clone()
+    lastDeriveList = deriveList.clone()
+
+    println("bug---------!!!!!!---"+formula+"^^^^^^"+subFormulasList)
+    formula =  deriveList(subFormulasList.indexOf(formula))
+      
+    val simplifyAnalyzers = FormulaSimplifier()
+    formula = simplifyAnalyzers.simplifyTorF(formula)  
+    
+    lastFormula = formula.mapChildren { x => x }
+
+      
+    if (formula == True || formula == False) {
+      return formula
+    }
+    
+    
+    i += 1   
+    
+    for (k<-0 until subFormulasList.length){
+      resolveList(k) = resolve(subFormulasList(k), trace, i)
+    }
+      
+    for (k<-0 until subFormulasList.length){
+      deriveList(k) = derive(subFormulasList(k), trace, i)
+    }
+
+    formula =  deriveList(subFormulasList.indexOf(formula))
+    formula = simplifyAnalyzers.simplifyTorF(formula)  
+    
+    if (formula == True || formula == False) {
+      return formula
+    }
+    else{
+      return Unknown
+    }
   }
   
-  private def resolve(formula: Formula,trace: Seq[QueryModel], resolveMap: HashMap[Formula, Formula], deriveMap: HashMap[Formula, Formula], index: Int): Formula = {
+  private def resolve(formula: Formula,trace: Seq[QueryModel], index: Int): Formula = {
     
     val result =
       formula match {
         case Not(child) =>
-          Not(resolve(child, trace, resolveMap, deriveMap, index))
+          Not(resolve(child, trace, index))
 
         case And(left, right) =>
-          And(resolve(left, trace, resolveMap, deriveMap, index), resolve(right, trace, resolveMap, deriveMap, index))
+          And(resolve(left, trace, index), resolve(right, trace, index))
 
         case Or(left, right) =>
-          Or(resolve(left, trace, resolveMap, deriveMap, index), resolve(right, trace, resolveMap, deriveMap, index))
+          Or(resolve(left, trace, index), resolve(right, trace, index))
 
         case Imply(left, right) =>
-          Or(Not(resolve(left, trace, resolveMap, deriveMap, index)), resolve(right, trace, resolveMap, deriveMap, index))
+          Or(Not(resolve(left, trace, index)), resolve(right, trace, index))
 
         case True => True
 
@@ -239,7 +275,7 @@ class LTLFormulaEvaluatorOnline(val trace: Seq[QueryModel]) extends Logging {
             False
           }
           else {
-            resolveMap(deriveMap(px.child))
+            resolveList(subFormulasList.indexOf(deriveList(subFormulasList.indexOf(px.child))))
           }
         
                 
@@ -247,10 +283,10 @@ class LTLFormulaEvaluatorOnline(val trace: Seq[QueryModel]) extends Logging {
           val pu = formula.asInstanceOf[pU]
           val upper = pu.upper
           val lower = pu.lower
-          var formula1 = formula
-          var formula2 = formula
+          var formula1 :Formula= null
+          var formula2 :Formula= null
           if(0 <= upper && 0 >= lower) {
-            formula2 = resolveMap(pu.right)
+            formula2 = resolveList(subFormulasList.indexOf(pu.right))
           }
           else{
             formula2 = False
@@ -264,7 +300,8 @@ class LTLFormulaEvaluatorOnline(val trace: Seq[QueryModel]) extends Logging {
             if (0 <= (upper - timeSubtract)){
               pu.upper = upper - timeSubtract
               pu.lower = lower - timeSubtract
-              formula1 = And(resolveMap(pu.left), resolveMap(deriveMap(pu))) 
+              if(pu.lower<0) pu.lower = 0
+              formula1 = And(resolveList(subFormulasList.indexOf(pu.left)), resolveList(subFormulasList.indexOf(deriveList(subFormulasList.indexOf(pu))))) 
             }
             else{
               formula1 = False
@@ -282,21 +319,21 @@ class LTLFormulaEvaluatorOnline(val trace: Seq[QueryModel]) extends Logging {
     result
   }
   
-  private def derive(formula: Formula,trace: Seq[QueryModel], resolveMap: HashMap[Formula, Formula], deriveMap: HashMap[Formula, Formula], index: Int): Formula = {
+  private def derive(formula: Formula,trace: Seq[QueryModel], index: Int): Formula = {
         
     val result =
       formula match {
         case Not(child) =>
-          Not(derive(child, trace, resolveMap, deriveMap, index))
+          Not(derive(child, trace, index))
 
         case And(left, right) =>
-          And(derive(left, trace, resolveMap, deriveMap, index), derive(right, trace, resolveMap, deriveMap, index))
+          And(derive(left, trace, index), derive(right, trace, index))
 
         case Or(left, right) =>
-          Or(derive(left, trace, resolveMap, deriveMap, index), derive(right, trace, resolveMap, deriveMap, index))
+          Or(derive(left, trace, index), derive(right, trace, index))
 
         case Imply(left, right) =>
-          Or(Not(derive(left, trace, resolveMap, deriveMap, index)), derive(right, trace, resolveMap, deriveMap, index))
+          Or(Not(derive(left, trace, index)), derive(right, trace, index))
 
         case True => True
 
@@ -309,6 +346,8 @@ class LTLFormulaEvaluatorOnline(val trace: Seq[QueryModel]) extends Logging {
           val lower = x.lower
           if (index == trace.size-1 
               || !(trace(index+1).timestamp <= upper && trace(index+1).timestamp >= lower)){
+//             if (index == trace.size-1 
+//              || !(trace(index+1).timestamp <= upper && trace(index+1).timestamp >= lower)){
             False
           }
           else {
@@ -317,12 +356,13 @@ class LTLFormulaEvaluatorOnline(val trace: Seq[QueryModel]) extends Logging {
 
         case _: U =>
           val u = formula.asInstanceOf[U]
+          println("&&&^^^^^"+u)
           val upper = u.upper
           val lower = u.lower
-          var formula1 = formula
-          var formula2 = formula
+          var formula1 :Formula= null
+          var formula2 :Formula= null
           if(0 <= upper && 0 >= lower) {
-            formula1 = resolveMap(u.right)
+            formula1 = deriveList(subFormulasList.indexOf(u.right))
           }
           else{
             formula1 = False
@@ -333,10 +373,13 @@ class LTLFormulaEvaluatorOnline(val trace: Seq[QueryModel]) extends Logging {
           else{
             // 有问题？？？
             val timeSubtract = trace(index+1).timestamp - trace(index).timestamp
+            println("time-----"+trace(index+1).timestamp)
             if (0 <= (upper - timeSubtract)){
               u.upper = upper - timeSubtract
               u.lower = lower - timeSubtract
-              formula2 = And(deriveMap(u.left), u) 
+              if(u.lower<0) u.lower = 0
+              formula2 = And(deriveList(subFormulasList.indexOf(u.left)), u) 
+              
             }
             else{
               formula2 = False
@@ -346,11 +389,11 @@ class LTLFormulaEvaluatorOnline(val trace: Seq[QueryModel]) extends Logging {
         
         case _: pX =>
           //有问题
-          deriveMap(resolveMap(formula))
+          deriveList(subFormulasList.indexOf(resolveList(subFormulasList.indexOf(formula))))
           
         case _: pU =>
           //有问题
-          deriveMap(resolveMap(formula))
+          deriveList(subFormulasList.indexOf(resolveList(subFormulasList.indexOf(formula))))
           
           
         case _ =>

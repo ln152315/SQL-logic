@@ -36,4 +36,6 @@ package object formula {
   val True = Constant(true)
 
   val False = Constant(false)
+  
+  val Unknown = Constant("Unknown")
 }

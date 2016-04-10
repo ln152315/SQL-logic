@@ -89,7 +89,7 @@ case class LeafState(plan: LeafNode) extends State {
 }
 
 case class QueryModel(initialStates: Seq[State], finalState: State) {
-  var timestamp = new Date().getTime()
+  var timestamp = 0.toInt
   def clearCache {
     finalState.foreach { _.clearCache }
 
