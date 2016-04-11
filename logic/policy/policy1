@@ -9,4 +9,4 @@ define predicate equals(int z, int y) class=edu.thu.ss.logic.example.Equals
 define predicate output(column c) class=edu.thu.ss.logic.example.Output
 
 #policy
-r1: G[1,3] (AG isZero(add(1, 1)))
+r1: (AG !isZero(add(1, 1))) U[1,3] (AG isZero(add(1, 1)))
