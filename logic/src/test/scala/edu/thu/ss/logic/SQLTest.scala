@@ -29,7 +29,7 @@ object SQLTest {
     val customer = LocalRelation('cid.int, 'name.string, 'age.int, 'salary.double, 'aid.int)
     new DataFrame(context, customer).registerTempTable("customer")
     val address = LocalRelation('aid.int, 'state.string, 'city.string, 'street.string, 'zip.string)
-    new DataFrame(context, customer).registerTempTable("address")
+    new DataFrame(context, address).registerTempTable("address")
 
     context
   }

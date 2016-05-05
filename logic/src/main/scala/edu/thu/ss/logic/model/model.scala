@@ -1,5 +1,7 @@
 package edu.thu.ss.logic.model
 
+import edu.thu.ss.logic.LogicChecker
+import org.apache.spark.sql.SQLContext
 import edu.thu.ss.logic.tree.DoubleNode
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import scala.collection.mutable.ListBuffer
@@ -16,6 +18,8 @@ import org.apache.spark.sql.catalyst.expressions.AttributeReference
 import org.apache.spark.sql.catalyst.expressions.Alias
 import org.apache.spark.sql.catalyst.expressions.NamedExpression
 import org.apache.spark.sql.catalyst.plans.logical.Aggregate
+import org.apache.spark.sql.catalyst.plans.logical.Filter
+import org.apache.spark.sql.catalyst.plans.logical.Union
 import edu.thu.ss.logic.formula.Formula
 import java.util.Date
 
@@ -90,10 +94,54 @@ case class LeafState(plan: LeafNode) extends State {
 
 case class QueryModel(initialStates: Seq[State], finalState: State) {
   var timestamp = 0.toInt
+  
+//  private var global = new mutable.HashMap[String, String]
+  
+  private var role :String = null
+  
+  private var purpose :String = null
+  
+  private var tables :ListBuffer[String] = new ListBuffer() 
+  
+//  private var union :Set[(String, String)] = new Set()
+  
   def clearCache {
     finalState.foreach { _.clearCache }
 
   }
+  
+  def setRole(role: String){
+    this.role = role
+//    global.put("Role", role)
+  }
+  
+  def setPurpose(purpose: String){
+    this.purpose = purpose
+//    global.put("Purpose", purpose)
+  }
+  
+//  def getGlobal = global
+  
+  
+  def getTables = tables
+ 
+  def preprocessAccess(sqlContext: SQLContext) {
+    // accessed tables
+    LogicChecker.init(sqlContext)
+    var alltables = LogicChecker.getDatabaseSchema("")
+    alltables.foreach{f => initialStates.foreach { x => {
+      if(f._2.equals(x.plan.schema))
+        tables += f._1
+      } }}
+  }
+  
+  def preprocessUnion{
+    
+  }
+  
+  
+  def global = (role, purpose, tables)
+
 }
 
 object QueryModel {
@@ -125,6 +173,7 @@ object QueryModel {
         child.parent = state
         state
       case leaf: LeafNode =>
+        println("LocalRelation:")
         val state = LeafState(leaf)
         initialStates.append(state)
         state
@@ -135,12 +184,42 @@ object QueryModel {
     finalState.foreachUp { state =>
       state.attributeExprs.clear
       state.plan match {
+        case sort: org.apache.spark.sql.catalyst.plans.logical.Sort =>
+          println("Order:"+ sort.order(0).child)
+          println("Order:"+ sort.order(0).direction)
+          println("Order:"+ sort.order.exists { x => (x.child.toString() == "name#1")&&(x.direction.toString() == "Ascending") })
+        case u: Union =>
+          println()
+        case f: Filter =>
+          println("Filter:"+ f.condition.containsChild.exists { _.toString() == "aid#5" })
         case leaf: LeafNode =>
           //initialization   
           leaf.output.foreach { attr => state.attributeExprs.put(attr, attr) }
         case proj: Project =>
+          println("Project:" + proj.output)
+//          println(proj.output.exists { _.toString() == "cid#0" })
           buildTransformation(state, proj.projectList, state.children(0))
         case agg: Aggregate =>
+          println("Aggregate:"+agg.groupingExpressions.exists { x => x.toString() == "name#1" })
+          agg.aggregateExpressions.foreach { x => {
+//            println(x.nodeName)
+            println(x.children)
+            
+            x.containsChild.foreach { c => println(c.nodeName) }
+            x.containsChild.foreach { c => c.containsChild.foreach { x => println(x.containsChild) } }
+          }
+          
+//          println(agg.aggregateExpressions.exists { x => {
+//          x.nodeName.equals("Alias") && x.containsChild.exists { c => {
+//            c.nodeName.equals("First") && (c.containsChild.exists { a => a.toString().equals("age#2") } || c.containsChild.exists { a => a.containsChild.exists { b => b.toString().equals("age#2") } } )
+//
+//            }
+////           
+//          }
+//        } })
+             }
+          println("Aggregate:"+agg.child)
+
           buildTransformation(state, agg.aggregateExpressions, state.children(0))
         case _ => state.children.foreach { state.attributeExprs ++= _.attributeExprs }
       }

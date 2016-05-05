@@ -11,6 +11,7 @@ import edu.thu.ss.logic.model.State
 import edu.thu.ss.logic.util.Logging
 import edu.thu.ss.logic.util.LogicUtils
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.HashMap
 import edu.thu.ss.logic.policy.Rule
 
@@ -18,9 +19,14 @@ import edu.thu.ss.logic.policy.Rule
 // online
 
 class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
-  private var formula = rule.formula
+  var name = rule.name
+  
+  
   
   private var subFormulasList = ArrayBuffer[Formula](True, False)
+  
+  private var formula = rule.formula
+  
   private var resolveList = Array[Formula]()
   private var deriveList = Array[Formula]()
   
@@ -29,7 +35,7 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
   private var lastResolveList = Array[Formula]()
   private var lastDeriveList = Array[Formula]()
   
-  private var trace :List[QueryModel] = List()
+  private var trace :ListBuffer[QueryModel] =new ListBuffer()
   
   private var isInit = false
   
@@ -139,16 +145,16 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
       isInit = true
     }
     
-    trace = trace :+ model
+    trace += model
 
     
-    println("---initial:subFormulasList-----"+subFormulasList)
-    println("---initial:resolveList-----"+resolveList.toBuffer)
-    println("---initial:deriveList-----"+deriveList.toBuffer)
-    println("---initial:lastresolveList-----"+lastResolveList.toBuffer)
-    println("---initial:lastderiveList-----"+lastDeriveList.toBuffer)
-    println("---initial:formula-----"+formula)
-    println("---initial:lastFormula-----"+lastFormula)
+//    println("---initial:subFormulasList-----"+subFormulasList)
+//    println("---initial:resolveList-----"+resolveList.toBuffer)
+//    println("---initial:deriveList-----"+deriveList.toBuffer)
+//    println("---initial:lastresolveList-----"+lastResolveList.toBuffer)
+//    println("---initial:lastderiveList-----"+lastDeriveList.toBuffer)
+//    println("---initial:formula-----"+formula)
+//    println("---initial:lastFormula-----"+lastFormula)
     var i = trace.length-2
     println("---index:-------:"+i)
     
@@ -164,13 +170,13 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
       
       val simplifyAnalyzers = FormulaSimplifier()
       
-      println("---0:subFormulasList-----"+subFormulasList)
-      println("---0:resolveList-----"+resolveList.toBuffer)
-      println("---0:deriveList-----"+deriveList.toBuffer)
-      println("---0:lastresolveList-----"+lastResolveList.toBuffer)
-      println("---0:lastderiveList-----"+lastDeriveList.toBuffer)
-      println("---0:formula-----"+formula)
-      println("---0:lastFormula-----"+lastFormula)
+//      println("---0:subFormulasList-----"+subFormulasList)
+//      println("---0:resolveList-----"+resolveList.toBuffer)
+//      println("---0:deriveList-----"+deriveList.toBuffer)
+//      println("---0:lastresolveList-----"+lastResolveList.toBuffer)
+//      println("---0:lastderiveList-----"+lastDeriveList.toBuffer)
+//      println("---0:formula-----"+formula)
+//      println("---0:lastFormula-----"+lastFormula)
       
       if (formula == True || formula == False) {
         return formula
@@ -180,24 +186,24 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
       }
       
     }
-    println("---1:subFormulasList-----"+subFormulasList)
-    println("---1:resolveList-----"+resolveList.toBuffer)
-    println("---1:deriveList-----"+deriveList.toBuffer)
-    println("---1:lastresolveList-----"+lastResolveList.toBuffer)
-    println("---1:lastderiveList-----"+lastDeriveList.toBuffer)
-    println("---1:formula-----"+formula)
-    println("---1:lastFormula-----"+lastFormula)
+//    println("---1:subFormulasList-----"+subFormulasList)
+//    println("---1:resolveList-----"+resolveList.toBuffer)
+//    println("---1:deriveList-----"+deriveList.toBuffer)
+//    println("---1:lastresolveList-----"+lastResolveList.toBuffer)
+//    println("---1:lastderiveList-----"+lastDeriveList.toBuffer)
+//    println("---1:formula-----"+formula)
+//    println("---1:lastFormula-----"+lastFormula)
     resolveList = lastResolveList.clone()
     deriveList = lastDeriveList.clone()
 
     formula = lastFormula
-    println("---2:subFormulasList-----"+subFormulasList)
-    println("---2:resolveList-----"+resolveList.toBuffer)
-    println("---2:deriveList-----"+deriveList.toBuffer)
-    println("---2:lastresolveList-----"+lastResolveList.toBuffer)
-    println("---2:lastderiveList-----"+lastDeriveList.toBuffer)
-    println("---2:formula-----"+formula)
-    println("---2:lastFormula-----"+lastFormula)
+//    println("---2:subFormulasList-----"+subFormulasList)
+//    println("---2:resolveList-----"+resolveList.toBuffer)
+//    println("---2:deriveList-----"+deriveList.toBuffer)
+//    println("---2:lastresolveList-----"+lastResolveList.toBuffer)
+//    println("---2:lastderiveList-----"+lastDeriveList.toBuffer)
+//    println("---2:formula-----"+formula)
+//    println("---2:lastFormula-----"+lastFormula)
     
     
     for (k<-0 until subFormulasList.length){
@@ -219,13 +225,13 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
     
     lastFormula = formula
     
-    println("---3:subFormulasList-----"+subFormulasList)
-    println("---3:resolveList-----"+resolveList.toBuffer)
-    println("---3:deriveList-----"+deriveList.toBuffer)
-    println("---3:lastresolveList-----"+lastResolveList.toBuffer)
-    println("---3:lastderiveList-----"+lastDeriveList.toBuffer)
-    println("---3:formula-----"+formula)
-    println("---3:lastFormula-----"+lastFormula)
+//    println("---3:subFormulasList-----"+subFormulasList)
+//    println("---3:resolveList-----"+resolveList.toBuffer)
+//    println("---3:deriveList-----"+deriveList.toBuffer)
+//    println("---3:lastresolveList-----"+lastResolveList.toBuffer)
+//    println("---3:lastderiveList-----"+lastDeriveList.toBuffer)
+//    println("---3:formula-----"+formula)
+//    println("---3:lastFormula-----"+lastFormula)
       
     if (formula == True || formula == False) {
       return formula
@@ -245,13 +251,13 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
     formula =  deriveList(subFormulasList.indexOf(formula))
     formula = simplifyAnalyzers.simplifyTorF(formula)  
     
-    println("---4:subFormulasList-----"+subFormulasList)
-    println("---4:resolveList-----"+resolveList.toBuffer)
-    println("---4:deriveList-----"+deriveList.toBuffer)
-    println("---4:lastresolveList-----"+lastResolveList.toBuffer)
-    println("---4:lastderiveList-----"+lastDeriveList.toBuffer)
-    println("---4:formula-----"+formula)
-    println("---4:lastFormula-----"+lastFormula)
+//    println("---4:subFormulasList-----"+subFormulasList)
+//    println("---4:resolveList-----"+resolveList.toBuffer)
+//    println("---4:deriveList-----"+deriveList.toBuffer)
+//    println("---4:lastresolveList-----"+lastResolveList.toBuffer)
+//    println("---4:lastderiveList-----"+lastDeriveList.toBuffer)
+//    println("---4:formula-----"+formula)
+//    println("---4:lastFormula-----"+lastFormula)
     
     if (formula == True || formula == False) {
       return formula
@@ -317,7 +323,6 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
             formula1 = False
           }
           else{
-            // 有问题？？？
             val timeSubtract = trace(index).timestamp - trace(index-1).timestamp
             if (0 < (upper - timeSubtract)){
               

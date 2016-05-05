@@ -8,6 +8,7 @@ import org.apache.spark.sql.types.IntegralType
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import edu.thu.ss.logic.paser.PolicyParser
+import scala.collection.mutable.ListBuffer
 
 
 class LTLFormulaEvaluatorOnlineSuite extends SQLTest {
@@ -17,11 +18,11 @@ class LTLFormulaEvaluatorOnlineSuite extends SQLTest {
 
   test("test1") {
     val policy = parser.parsePolicy("policy/policy1")
-    var evaluators : List[LTLFormulaEvaluatorOnline] = List()
+    var evaluators : ListBuffer[LTLFormulaEvaluatorOnline] =new ListBuffer()
     
     policy.rules.foreach { rule =>
       {
-        evaluators = evaluators :+ new LTLFormulaEvaluatorOnline(rule)
+        evaluators += new LTLFormulaEvaluatorOnline(rule)
         
       }
     }
@@ -32,7 +33,12 @@ class LTLFormulaEvaluatorOnlineSuite extends SQLTest {
     val model1 = QueryModel.fromQueryPlan(plan1)
     model1.timestamp = 10
     
-    evaluators.foreach { e => e.monitor(model1) }
+    evaluators.foreach { e =>{
+      val value = e.monitor(model1)
+      val rule = e.name
+      println(s"$rule = $value")
+      }
+    }
     
     
     val query2 = sqlContext.sql("select name from customer")
@@ -41,7 +47,12 @@ class LTLFormulaEvaluatorOnlineSuite extends SQLTest {
     val model2 = QueryModel.fromQueryPlan(plan2)
     model2.timestamp = 12
 
-    evaluators.foreach { e => e.monitor(model2) }
+    evaluators.foreach { e =>{
+      val value = e.monitor(model2)
+      val rule = e.name
+      println(s"$rule = $value")
+      }
+    }
     
     val query3 = sqlContext.sql("select aid, name from customer")
 
@@ -50,7 +61,12 @@ class LTLFormulaEvaluatorOnlineSuite extends SQLTest {
     model3.timestamp = 13
     
     
-    evaluators.foreach { e => e.monitor(model3) }
+    evaluators.foreach { e =>{
+      val value = e.monitor(model3)
+      val rule = e.name
+      println(s"$rule = $value")
+      }
+    }
     
 
     

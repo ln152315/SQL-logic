@@ -49,9 +49,10 @@ abstract class BaseFunctionDef[T <: IBaseFunction] extends LogicDefinition with 
   lazy val evaluateMethod: Method =
     clazz.getMethod("evaluate", domain.map { _.valueClass }: _*)
 
-  def evaluate(impl: IBaseFunction, state: State, params: Seq[Any]): Any = {
+  def evaluate(impl: IBaseFunction, state: State, params: Seq[Any], global: (String, String, Seq[String])): Any = {
     //set current state
     impl.setState(state)
+    impl.setGlobal(global)
 
     val objs = params.map { _.asInstanceOf[AnyRef] }
     val value = evaluateMethod.invoke(impl, objs: _*)

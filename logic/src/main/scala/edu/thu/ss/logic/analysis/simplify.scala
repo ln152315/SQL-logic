@@ -25,7 +25,6 @@ case class FormulaSimplifier(maxIterations: Int = 100) extends SequentialAnalyze
     var lastFormula = curFormula
     var continue = true
     
-    println("----rules.size----"+rules.size)
     println("----formula-------"+formula)
     while (continue) {
       curFormula = rules.foldLeft(curFormula) {

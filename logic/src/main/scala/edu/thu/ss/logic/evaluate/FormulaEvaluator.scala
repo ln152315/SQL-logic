@@ -70,7 +70,7 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
     if (cacheEnabled) {
       val cacheResult = state.getFormula(formula)
       if (cacheResult.isDefined) {
-        logTrace(s"cache hit for formula $formula")
+//        logTrace(s"cache hit for formula $formula")
         return cacheResult.get
       }
     }
@@ -90,10 +90,10 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
           !evaluateFormula(left, state) || evaluateFormula(right, state)
 
         case pred: PredicateCall =>
-          evaluateFunction(pred, state).asInstanceOf[Boolean]
+          evaluateFunction(pred, state, model.global).asInstanceOf[Boolean]
 
         case quantifier: Quantifier =>
-          evaluateQuantifier(quantifier, state)
+          evaluateQuantifier(quantifier, state, model.global)
 
         case variable: Variable =>
           //must be a boolean variable
@@ -166,22 +166,22 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
 
       }
     if (cacheEnabled) {
-      logTrace(s"cache formula $formula")
+//      logTrace(s"cache formula $formula")
       state.cacheFormula(formula, result)
     }
     result
   }
 
-  private def evaluateFunction(function: BaseFunctionCall, state: State): Any = {
+  private def evaluateFunction(function: BaseFunctionCall, state: State, global: (String, String, Seq[String])): Any = {
     val functionDef = function.definition
     val impl = context.getBaseFunctionImpl(functionDef)
-    val params = function.parameters.map(evaluateParam(_, state))
-    functionDef.evaluate(impl, state, params)
+    val params = function.parameters.map(evaluateParam(_, state, global))
+    functionDef.evaluate(impl, state, params, global)
   }
 
-  private def evaluateParam(param: Term, state: State): Any = {
+  private def evaluateParam(param: Term, state: State, global: (String, String, Seq[String])): Any = {
     param match {
-      case subfunc: BaseFunctionCall => evaluateFunction(subfunc, state)
+      case subfunc: BaseFunctionCall => evaluateFunction(subfunc, state, global)
       case const: Constant => const.value
       case variable: Variable =>
         // must have been initialized
@@ -189,7 +189,7 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
     }
   }
 
-  private def evaluateQuantifier(quantifier: Quantifier, state: State): Boolean = {
+  private def evaluateQuantifier(quantifier: Quantifier, state: State, global: (String, String, Seq[String])): Boolean = {
     val variable = quantifier.variable
     val quantifiedPredicate = quantifier.quantifiedPredicate
 
@@ -200,11 +200,11 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
           if (!variable.sort.finite) {
             false
           } else {
-            val quantifiedValues = getQuantifiedValues(quantifiedPredicate, variable, state).toSet
+            val quantifiedValues = getQuantifiedValues(quantifiedPredicate, variable, state, global).toSet
             variable.sort.values.forall { quantifiedValues.contains(_) }
           }
         case exists: Exists =>
-          !getQuantifiedValues(quantifiedPredicate, variable, state).isEmpty
+          !getQuantifiedValues(quantifiedPredicate, variable, state, global).isEmpty
       }
       return result
     }
@@ -219,7 +219,7 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
         quantifier.child
       }
 
-    val quantifiedValues = getQuantifiedValues(quantifier, state)
+    val quantifiedValues = getQuantifiedValues(quantifier, state, global)
 
     if (fineCache) {
       //in this case, we would substitute the formula directly
@@ -251,19 +251,19 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
 
   }
 
-  private def getQuantifiedValues(quantifier: Quantifier, state: State): Traversable[Any] = {
+  private def getQuantifiedValues(quantifier: Quantifier, state: State, global: (String, String, Seq[String])): Traversable[Any] = {
     if (quantifier.quantifiedPredicate != null) {
-      getQuantifiedValues(quantifier.quantifiedPredicate, quantifier.variable, state)
+      getQuantifiedValues(quantifier.quantifiedPredicate, quantifier.variable, state, global)
     } else {
       quantifier.variable.sort.values
     }
   }
 
-  private def getQuantifiedValues(predicate: PredicateCall, variable: Variable, state: State): Traversable[Any] = {
+  private def getQuantifiedValues(predicate: PredicateCall, variable: Variable, state: State, global: (String, String, Seq[String])): Traversable[Any] = {
     val impl = context.getPredicateImpl(predicate.definition)
 
     val index = predicate.parameters.indexOf(variable)
-    val otherParams = predicate.parameters.withFilter(_ != variable).map(evaluateParam(_, state))
+    val otherParams = predicate.parameters.withFilter(_ != variable).map(evaluateParam(_, state, global))
     val values = impl.values(index, otherParams)
     //TODO: should we check values?
     values.foreach(value => {
