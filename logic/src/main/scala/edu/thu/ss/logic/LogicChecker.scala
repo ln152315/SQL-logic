@@ -56,6 +56,27 @@ object LogicChecker {
       (table, getTableSchema(table))
     }
   }
+  
+  def getColumnFromTable(table: String): Seq[(String, String)] = {
+    val columns = sqlContext.table(table).schema.fields
+    columns.map { column => 
+      (table, column.name)
+    }
+  }
+  
+  def getTableNames(database: String): Set[String] = {
+    sqlContext.tableNames(database).toSet
+  }
+  
+  def getColumnNames(database: String): Set[String] = {
+    var columns: Set[String] = Set()
+    sqlContext.tableNames(database).foreach { t =>
+      getColumnFromTable(t).foreach{ c =>
+        columns += c._1+"."+c._2
+        }
+      }
+    columns
+  }
 
   def fromPolicy(path: String): LogicChecker = {
     val parser = new PolicyParser

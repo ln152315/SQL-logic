@@ -17,6 +17,9 @@ class LTLFormulaEvaluatorOnlineSuite extends SQLTest {
   
 
   test("test1") {
+    LogicChecker.init(sqlContext)
+
+    
     val policy = parser.parsePolicy("policy/policy1")
     var evaluators : ListBuffer[LTLFormulaEvaluatorOnline] =new ListBuffer()
     
@@ -26,11 +29,11 @@ class LTLFormulaEvaluatorOnlineSuite extends SQLTest {
         
       }
     }
+    val query1 = sqlContext.sql("select address.aid from customer join address on customer.aid=address.aid")
     
-    val query1 = sqlContext.sql("select cid+aid id, name from customer")
-
     val plan1 = query1.queryExecution.analyzed
     val model1 = QueryModel.fromQueryPlan(plan1)
+    model1.preprocess(model1.initialState, model1.finalState)
     model1.timestamp = 10
     
     evaluators.foreach { e =>{
@@ -41,10 +44,11 @@ class LTLFormulaEvaluatorOnlineSuite extends SQLTest {
     }
     
     
-    val query2 = sqlContext.sql("select name from customer")
+    val query2 = sqlContext.sql("select na from (select concat(address.state, address.city) as na, address.aid as id from address ) as t1")
 
     val plan2 = query2.queryExecution.analyzed
     val model2 = QueryModel.fromQueryPlan(plan2)
+    model2.preprocess(model2.initialState, model2.finalState)
     model2.timestamp = 12
 
     evaluators.foreach { e =>{
@@ -54,10 +58,11 @@ class LTLFormulaEvaluatorOnlineSuite extends SQLTest {
       }
     }
     
-    val query3 = sqlContext.sql("select aid, name from customer")
+    val query3 = sqlContext.sql("select customer.name, first(customer.age) from customer group by customer.name, customer.salary")
 
     val plan3 = query3.queryExecution.analyzed
     val model3 = QueryModel.fromQueryPlan(plan3)
+    model3.preprocess(model3.initialState, model3.finalState)
     model3.timestamp = 13
     
     

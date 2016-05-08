@@ -1,6 +1,7 @@
 package edu.thu.ss.logic.definition
 
 import scala.collection.mutable
+import edu.thu.ss.logic.model.QueryModel
 import edu.thu.ss.logic.formula.True
 import edu.thu.ss.logic.formula.False
 import java.{ lang => java }
@@ -39,19 +40,20 @@ trait ISort[T] extends IDefinition {
 trait IBaseFunction {
   private var state: State = null
   
-  private var global: (String, String, Seq[String]) = null
-
+  private var model: QueryModel = null
+  
   def setState(state: State) {
     this.state = state
   }
 
   def getState = state
   
-  def setGlobal(global: (String, String, Seq[String])) {
-    this.global = global
+  def setModel(model: QueryModel) {
+    this.model = model
   }
 
-  def getGlobal = global
+  def getModel = model
+  
 
 }
 

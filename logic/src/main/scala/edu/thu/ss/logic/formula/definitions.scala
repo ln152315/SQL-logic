@@ -8,6 +8,7 @@ import edu.thu.ss.logic.paser.AnalysisException
 import edu.thu.ss.logic.paser.IllegalValueException
 import edu.thu.ss.logic.tree.NamedNode
 import edu.thu.ss.logic.model.State
+import edu.thu.ss.logic.model.QueryModel
 
 abstract class LogicDefinition extends NamedNode {
   val name: Symbol
@@ -49,10 +50,10 @@ abstract class BaseFunctionDef[T <: IBaseFunction] extends LogicDefinition with 
   lazy val evaluateMethod: Method =
     clazz.getMethod("evaluate", domain.map { _.valueClass }: _*)
 
-  def evaluate(impl: IBaseFunction, state: State, params: Seq[Any], global: (String, String, Seq[String])): Any = {
+  def evaluate(impl: IBaseFunction, state: State, params: Seq[Any], model: QueryModel): Any = {
     //set current state
     impl.setState(state)
-    impl.setGlobal(global)
+    impl.setModel(model)
 
     val objs = params.map { _.asInstanceOf[AnyRef] }
     val value = evaluateMethod.invoke(impl, objs: _*)

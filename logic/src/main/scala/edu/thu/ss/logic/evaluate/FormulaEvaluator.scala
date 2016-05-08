@@ -55,7 +55,8 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
   private lazy val context = new EvaluationContext(model)
 
   def evaluate(formula: Formula): Boolean = {
-    val value = model.initialStates.forall(evaluateFormula(formula, _))
+//    val value = model.initialStates.forall(evaluateFormula(formula, _))
+    val value = evaluateFormula(formula, model.initialState)
 
     //the context and cache are shared among all evaluations of a formula on a model (multiple initial states)
     context.clear
@@ -90,10 +91,10 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
           !evaluateFormula(left, state) || evaluateFormula(right, state)
 
         case pred: PredicateCall =>
-          evaluateFunction(pred, state, model.global).asInstanceOf[Boolean]
+          evaluateFunction(pred, state).asInstanceOf[Boolean]
 
         case quantifier: Quantifier =>
-          evaluateQuantifier(quantifier, state, model.global)
+          evaluateQuantifier(quantifier, state)
 
         case variable: Variable =>
           //must be a boolean variable
@@ -104,29 +105,45 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
         case False => false
 
         //temporal part
-        case _: AG | _: EG =>
-          val g = formula.asInstanceOf[UnaryFormula]
-          evaluateFormula(g.child, state) &&
-            (state.parent == null || evaluateFormula(g, state.parent))
+        case ag: AG =>
+          //parent holds in the current plus all parents states
+          evaluateFormula(ag.child, state) &&
+            state.parents.forall { evaluateFormula(ag, _) }
+          
+        case eg: EG =>
+          //parent holds in the current state or one of the parents states (if any) 
+          evaluateFormula(eg.child, state) &&
+            (state.parents.isEmpty || state.parents.exists { evaluateFormula(eg, _) })
 
-        case _: AF | _: EF =>
-          //child holds in one of the current plus all parent states
-          val f = formula.asInstanceOf[UnaryFormula]
-          evaluateFormula(f.child, state) ||
-            (state.parent != null && evaluateFormula(f, state.parent))
+        case af: AF =>
+          //either parent holds in the current state, or af holds in all parents states (non-empty)  
+          evaluateFormula(af.child, state) ||
+            (!state.parents.isEmpty && state.parents.forall { evaluateFormula(af, _) })
+            
+        case ef: EF =>
+          //parent holds in one of the current plus all parents states
+          evaluateFormula(ef.child, state) ||
+            state.parents.exists { evaluateFormula(ef, _) }
 
-        case _: AU | _: EU =>
-          //either right holds in the current state, or left holds in the current state and u holds in the parent state
-          val u = formula.asInstanceOf[BinaryFormula with TemporalFormula]
-          evaluateFormula(u.right, state) ||
-            (state.parent != null && evaluateFormula(u.left, state) && evaluateFormula(u, state.parent))
 
+        case au: AU =>
+          //either right holds in the current state, or left holds in the current state and au holds in all parents states (non-empty)
+          evaluateFormula(au.right, state) ||
+            (!state.parents.isEmpty && evaluateFormula(au.left, state)
+              && state.parents.forall { evaluateFormula(au, _) })
+              
+        case eu: EU =>
+          //either right holds in the current state, or left holds in the current state and eu holds in one of parents states (non-empty)
+          evaluateFormula(eu.right, state) ||
+            (!state.parents.isEmpty && evaluateFormula(eu.left, state)
+              && state.parents.exists { evaluateFormula(eu, _) })
+            
         case ax: AX =>
-          //either the parent state does not exist, or child holds in the parent state        
-          state.parent == null || evaluateFormula(ax.child, state.parent)
+          //parent holds in all parents states (if any)
+          state.parents.forall { evaluateFormula(ax.child, _) }
         case ex: EX =>
-          //the parent state must exist, and child holds in the parent state
-          state.parent != null && evaluateFormula(ex.child, state.parent)
+          //parent holds in one of the parents states (at least one, which means non-empty)
+          state.parents.exists { evaluateFormula(ex.child, _) }
 
         case pag: pAG =>
           //child holds in the current plus all children states
@@ -172,16 +189,16 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
     result
   }
 
-  private def evaluateFunction(function: BaseFunctionCall, state: State, global: (String, String, Seq[String])): Any = {
+  private def evaluateFunction(function: BaseFunctionCall, state: State): Any = {
     val functionDef = function.definition
     val impl = context.getBaseFunctionImpl(functionDef)
-    val params = function.parameters.map(evaluateParam(_, state, global))
-    functionDef.evaluate(impl, state, params, global)
+    val params = function.parameters.map(evaluateParam(_, state))
+    functionDef.evaluate(impl, state, params, model)
   }
 
-  private def evaluateParam(param: Term, state: State, global: (String, String, Seq[String])): Any = {
+  private def evaluateParam(param: Term, state: State): Any = {
     param match {
-      case subfunc: BaseFunctionCall => evaluateFunction(subfunc, state, global)
+      case subfunc: BaseFunctionCall => evaluateFunction(subfunc, state)
       case const: Constant => const.value
       case variable: Variable =>
         // must have been initialized
@@ -189,7 +206,7 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
     }
   }
 
-  private def evaluateQuantifier(quantifier: Quantifier, state: State, global: (String, String, Seq[String])): Boolean = {
+  private def evaluateQuantifier(quantifier: Quantifier, state: State): Boolean = {
     val variable = quantifier.variable
     val quantifiedPredicate = quantifier.quantifiedPredicate
 
@@ -200,11 +217,11 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
           if (!variable.sort.finite) {
             false
           } else {
-            val quantifiedValues = getQuantifiedValues(quantifiedPredicate, variable, state, global).toSet
+            val quantifiedValues = getQuantifiedValues(quantifiedPredicate, variable, state).toSet
             variable.sort.values.forall { quantifiedValues.contains(_) }
           }
         case exists: Exists =>
-          !getQuantifiedValues(quantifiedPredicate, variable, state, global).isEmpty
+          !getQuantifiedValues(quantifiedPredicate, variable, state).isEmpty
       }
       return result
     }
@@ -219,7 +236,7 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
         quantifier.child
       }
 
-    val quantifiedValues = getQuantifiedValues(quantifier, state, global)
+    val quantifiedValues = getQuantifiedValues(quantifier, state)
 
     if (fineCache) {
       //in this case, we would substitute the formula directly
@@ -251,19 +268,19 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
 
   }
 
-  private def getQuantifiedValues(quantifier: Quantifier, state: State, global: (String, String, Seq[String])): Traversable[Any] = {
+  private def getQuantifiedValues(quantifier: Quantifier, state: State): Traversable[Any] = {
     if (quantifier.quantifiedPredicate != null) {
-      getQuantifiedValues(quantifier.quantifiedPredicate, quantifier.variable, state, global)
+      getQuantifiedValues(quantifier.quantifiedPredicate, quantifier.variable, state)
     } else {
       quantifier.variable.sort.values
     }
   }
 
-  private def getQuantifiedValues(predicate: PredicateCall, variable: Variable, state: State, global: (String, String, Seq[String])): Traversable[Any] = {
+  private def getQuantifiedValues(predicate: PredicateCall, variable: Variable, state: State): Traversable[Any] = {
     val impl = context.getPredicateImpl(predicate.definition)
 
     val index = predicate.parameters.indexOf(variable)
-    val otherParams = predicate.parameters.withFilter(_ != variable).map(evaluateParam(_, state, global))
+    val otherParams = predicate.parameters.withFilter(_ != variable).map(evaluateParam(_, state))
     val values = impl.values(index, otherParams)
     //TODO: should we check values?
     values.foreach(value => {

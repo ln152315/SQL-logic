@@ -20,12 +20,17 @@ import org.apache.spark.sql.catalyst.expressions.NamedExpression
 import org.apache.spark.sql.catalyst.plans.logical.Aggregate
 import org.apache.spark.sql.catalyst.plans.logical.Filter
 import org.apache.spark.sql.catalyst.plans.logical.Union
+import org.apache.spark.sql.catalyst.plans.logical._
+import org.apache.spark.sql.types._;
+import org.apache.spark.sql.SQLContext
 import edu.thu.ss.logic.formula.Formula
 import java.util.Date
 
 abstract class State extends DoubleNode[State] {
   var parent: State = null
-
+  
+  var parents =new ListBuffer[State]
+  
   def nodeName = "state"
 
   def plan: LogicalPlan
@@ -86,31 +91,44 @@ case class UnaryState(child: State, plan: UnaryNode) extends State {
   val children = child :: Nil
 }
 
-case class LeafState(plan: LeafNode) extends State {
+case class LeafState(child: State, plan: LeafNode) extends State {
+
+  val children = child :: Nil
+
+}
+
+case class InitialState(plan: LeafNode) extends State {
 
   val children = Nil
 
 }
 
-case class QueryModel(initialStates: Seq[State], finalState: State) {
+case class QueryModel(initialState: State, finalState: State) {
   var timestamp = 0.toInt
   
 //  private var global = new mutable.HashMap[String, String]
-  
   private var role :String = null
   
   private var purpose :String = null
   
   private var tables :ListBuffer[String] = new ListBuffer() 
   
-//  private var union :Set[(String, String)] = new Set()
+  private var columns:ListBuffer[(String, String)] = new ListBuffer()
   
+  private var columnsExpr = new mutable.HashMap[String, String]
+  
+  private var alias = new mutable.HashMap[String, Set[String]]
+  
+  private var unions :Set[(String, String)] = Set()
+  
+  private var joins :Set[(String, String)] = Set()
+    
   def clearCache {
     finalState.foreach { _.clearCache }
 
   }
   
-  def setRole(role: String){
+    def setRole(role: String){
     this.role = role
 //    global.put("Role", role)
   }
@@ -122,60 +140,191 @@ case class QueryModel(initialStates: Seq[State], finalState: State) {
   
 //  def getGlobal = global
   
+  //  def global = (role, purpose, tables, unions, joins)
+
+  def getRole = role
+  
+  def getPurpose = purpose
   
   def getTables = tables
+  
+  def getUnions = unions
+  
+  def getJoins = joins
+  
+  def getAlias = alias
+  
+  def getColumnsExpr = columnsExpr
+  
+  def preprocess(initialState: State, finalState: State){
+    preprocessAccess(initialState)
+    pregrocessColumns()
+    mapFromColumnToExpr(initialState)
+    preprocessUnionOrJoin(finalState)
+    println("Unions:"+unions)
+    println("Joins:"+joins)
+    println("Alias:"+alias)
+    println("Columns:"+columns)
+    println("ColumnsExpr:"+columnsExpr)
+  }
  
-  def preprocessAccess(sqlContext: SQLContext) {
-    // accessed tables
-    LogicChecker.init(sqlContext)
+  def preprocessAccess(initialState: State) {
+    // accessed tables   
     var alltables = LogicChecker.getDatabaseSchema("")
-    alltables.foreach{f => initialStates.foreach { x => {
+    alltables.foreach{f => initialState.parents.foreach { x => {
       if(f._2.equals(x.plan.schema))
         tables += f._1
       } }}
-  }
-  
-  def preprocessUnion{
     
   }
   
+  def pregrocessColumns(){
+    tables.foreach { table => 
+      columns ++= LogicChecker.getColumnFromTable(table)
+    }
+  }
   
-  def global = (role, purpose, tables)
+  
+  
+  def mapFromColumnToExpr(initialState: State){
+    initialState.parents.foreach { x => 
+      val lr = x.plan.asInstanceOf[LocalRelation]
+      val tableName = getTableNameFromLocation(lr)
+        if(tableName!=null){
+//          println("Table:"+tableName)
+          lr.output.foreach { c => columnsExpr(tableName+"."+c.name) = c.toString() }
+        }
+      }
+  }
+  
+  def getTableNameFromLocation(lr: LocalRelation): String ={
+    // accessed tables   
+    var alltables = LogicChecker.getDatabaseSchema("")
+    alltables.find{f => f._2.equals(lr.schema)
+      } match{
+        case Some(s) => s._1
+        case None => null
+      }
+    
+  }
+  
+  def preprocessUnionOrJoin(state: State): ListBuffer[StructType] = {
+    var leftTable = new ListBuffer[StructType]
+    var rightTable = new ListBuffer[StructType]
+    state.plan match{
+      case r: LocalRelation =>
+        println("LocalRelation:")
+//        r.output.foreach { x => println(x.name) }
+        
+        ListBuffer(r.schema)
+      case u: Union => 
+        leftTable = preprocessUnionOrJoin(state.asInstanceOf[BinaryState].left)
+        rightTable = preprocessUnionOrJoin(state.asInstanceOf[BinaryState].right)
+        
+        leftTable.foreach { l => rightTable.foreach { r => unions += getTableName(l, r) } }
+        
+        leftTable ++ rightTable
+      case j: Join => 
+        leftTable = preprocessUnionOrJoin(state.asInstanceOf[BinaryState].left)
+        rightTable = preprocessUnionOrJoin(state.asInstanceOf[BinaryState].right)
+        
+        leftTable.foreach { l => rightTable.foreach { r => joins += getTableName(l, r) } }
+        
+        leftTable ++ rightTable
+      case proj: Project => 
+        proj.projectList.foreach { x => 
+            x match{
+              case a: Alias => 
+                println(a.nodeName)
+                val key = a.name+"#"+a.exprId.id
+                println(a.name+"#"+a.exprId.id)
+                a.child.foreach { y => {
+                  println(y.toString())
+                  println(y.toString().split("#").length)
+                  println(y.toString().split("#").length==2)
+                  if (y.toString().split("#").length ==2 ){
+                    if (!alias.contains(key)){
+                      alias(key) = Set()
+                    }
+                    alias(key) += y.toString()
+//                    println(y.toString())
+                  }
+                  } 
+                }
+              case _ => null
+            }
+          }
+        preprocessUnionOrJoin(state.asInstanceOf[UnaryState].child)
+      
+      case unary: UnaryNode => 
+        preprocessUnionOrJoin(state.asInstanceOf[UnaryState].child)
+      
+      case binary: BinaryNode => 
+        preprocessUnionOrJoin(state.asInstanceOf[BinaryState].left) ++ preprocessUnionOrJoin(state.asInstanceOf[BinaryState].right)
+        
+    }
+    
+    
+  }
+  
+  def getTableName(left: StructType, right: StructType): (String, String) ={
+    var alltables = LogicChecker.getDatabaseSchema("")
+    val leftName = alltables.find{ p => p._2.equals(left)} match{
+      case None => null
+      case Some(s) => s._1
+    }
+    val rightName = alltables.find{ p => p._2.equals(right)} match{
+      case None => null
+      case Some(s) => s._1
+    }
+    
+    
+    (leftName, rightName)
+  }
+  
+
+  
+  
+//  def global = (role, purpose, tables, unions, joins)
 
 }
 
 object QueryModel {
   val Empty = {
-    val state = new LeafState(null)
+    val state = new InitialState(null)
 
-    new QueryModel(Seq(state), state)
+    new QueryModel(state, state)
   }
+
 
   def fromQueryPlan(plan: LogicalPlan): QueryModel = {
-    val initialStates = new ListBuffer[State]
-    val finalState = translatePlan(plan, initialStates)
+//    val initialStates = new ListBuffer[State]
+//    val finalState = translatePlan(plan, initialStates)
+//    buildAttributeExprs(finalState)
+//    new QueryModel(initialStates, finalState)
+    val initialState = new InitialState(null)
+    val finalState = translatePlan(plan, initialState)
     buildAttributeExprs(finalState)
-    new QueryModel(initialStates, finalState)
+    new QueryModel(initialState, finalState)
   }
 
-  private def translatePlan(plan: LogicalPlan, initialStates: ListBuffer[State]): State = {
+  private def translatePlan(plan: LogicalPlan, initialState: State): State = {
     plan match {
       case binary: BinaryNode =>
-        val left = translatePlan(binary.left, initialStates)
-        val right = translatePlan(binary.right, initialStates)
+        val left = translatePlan(binary.left, initialState)
+        val right = translatePlan(binary.right, initialState)
         val state = BinaryState(left, right, binary)
-        left.parent = state
-        right.parent = state
+        left.parents += state
+        right.parents += state
         state
       case unary: UnaryNode =>
-        val child = translatePlan(unary.child, initialStates)
+        val child = translatePlan(unary.child, initialState)
         val state = UnaryState(child, unary)
-        child.parent = state
+        child.parents += state
         state
       case leaf: LeafNode =>
-        println("LocalRelation:")
-        val state = LeafState(leaf)
-        initialStates.append(state)
+        val state = LeafState(initialState, leaf)
+        initialState.parents += state
         state
     }
   }
@@ -187,7 +336,11 @@ object QueryModel {
         case sort: org.apache.spark.sql.catalyst.plans.logical.Sort =>
           println("Order:"+ sort.order(0).child)
           println("Order:"+ sort.order(0).direction)
-          println("Order:"+ sort.order.exists { x => (x.child.toString() == "name#1")&&(x.direction.toString() == "Ascending") })
+          println("Order:"+ sort.order.exists { x => (x.direction.toString() == "Ascending")&&(x.child.find { y => y.toString() == "name#1" } 
+            match{
+              case None => false
+              case _ => true
+            }) })
         case u: Union =>
           println()
         case f: Filter =>
@@ -196,11 +349,41 @@ object QueryModel {
           //initialization   
           leaf.output.foreach { attr => state.attributeExprs.put(attr, attr) }
         case proj: Project =>
-          println("Project:" + proj.output)
+          
+//          println("Project:" + proj.projectList)
+//          proj.projectList.foreach { x => 
+//            x match{
+//              case a: Alias => 
+//                println(a.nodeName)
+//                println(a.name+"#"+a.exprId.id)
+//                a.child.foreach { y => {
+//                  if (y.toString().contains("#") )
+//                    println(y.toString())
+//                  } 
+//                }
+//              case _ => null
+//               
+//              
+//            }
+//          }
+//          println("Project:" + proj.projectList.exists { x => x.find { y => y.toString() == "id#10" }
+//            match{
+//              case None => false
+//              case _ => true
+//            }
+//            })
 //          println(proj.output.exists { _.toString() == "cid#0" })
           buildTransformation(state, proj.projectList, state.children(0))
         case agg: Aggregate =>
-          println("Aggregate:"+agg.groupingExpressions.exists { x => x.toString() == "name#1" })
+          
+          println("Aggregate:"+agg.groupingExpressions.exists { x => 
+            x.find { y => y.toString() == "name#1" }
+            match{
+              case None => false
+              case _ => true
+              }
+          })
+          
           agg.aggregateExpressions.foreach { x => {
 //            println(x.nodeName)
             println(x.children)
@@ -208,17 +391,19 @@ object QueryModel {
             x.containsChild.foreach { c => println(c.nodeName) }
             x.containsChild.foreach { c => c.containsChild.foreach { x => println(x.containsChild) } }
           }
-          
-//          println(agg.aggregateExpressions.exists { x => {
-//          x.nodeName.equals("Alias") && x.containsChild.exists { c => {
-//            c.nodeName.equals("First") && (c.containsChild.exists { a => a.toString().equals("age#2") } || c.containsChild.exists { a => a.containsChild.exists { b => b.toString().equals("age#2") } } )
-//
-//            }
-////           
-//          }
-//        } })
              }
-          println("Aggregate:"+agg.child)
+          
+          println("Aggregate:"+agg.aggregateExpressions.exists { x => 
+            x.find { y => y.nodeName == "Average" }
+            match{
+              case None => false
+              case Some(s) => s.find { z => z.toString() == "age#2" } match{
+                case None => false
+                case _ => true
+              }
+              }
+          })
+          println("Aggregate:"+agg.aggregateExpressions)
 
           buildTransformation(state, agg.aggregateExpressions, state.children(0))
         case _ => state.children.foreach { state.attributeExprs ++= _.attributeExprs }
@@ -239,5 +424,9 @@ object QueryModel {
       }
     }
   }
+  
+    
+
+  
 
 }

@@ -8,11 +8,15 @@ import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.DataFrame
+//import org.apache.spark.sql.hive.HiveContext
+
 
 abstract class SQLTest extends FunSuite {
   lazy val sparkContext = SQLTest._sparkContext
 
   lazy val sqlContext = SQLTest._sqlContext
+
+//  lazy val hiveContext = SQLTest._hiveContext
 
 }
 
@@ -33,5 +37,10 @@ object SQLTest {
 
     context
   }
+  
+//  lazy val _hiveContext = {
+//    var hiveContext = new HiveContext(_sparkContext)
+//    hiveContext
+//  }
 
 }
