@@ -153,10 +153,10 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
 //    println("---initial:deriveList-----"+deriveList.toBuffer)
 //    println("---initial:lastresolveList-----"+lastResolveList.toBuffer)
 //    println("---initial:lastderiveList-----"+lastDeriveList.toBuffer)
-    println("---initial:formula-----"+formula)
+//    println("---initial:formula-----"+formula)
 //    println("---initial:lastFormula-----"+lastFormula)
     var i = trace.length-2
-    println("---index:-------:"+i)
+//    println("---index:-------:"+i)
     
     if(i<0){
       i = 0
@@ -168,7 +168,8 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
       }
       
       
-      formula =  deriveList(subFormulasList.indexOf(formula))
+//      formula =  deriveList(subFormulasList.indexOf(formula))
+      formula = findResult(formula)
       
       val simplifyAnalyzers = FormulaSimplifier()
       formula = simplifyAnalyzers.simplifyTorF(formula)  
@@ -220,8 +221,8 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
     lastResolveList = resolveList.clone()
     lastDeriveList = deriveList.clone()
 
-    formula =  deriveList(subFormulasList.indexOf(formula))
-    
+//    formula =  deriveList(subFormulasList.indexOf(formula))
+    formula = findResult(formula)
       
     val simplifyAnalyzers = FormulaSimplifier()
     formula = simplifyAnalyzers.simplifyTorF(formula)  
@@ -250,24 +251,25 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
     for (k<-0 until subFormulasList.length){
       deriveList(k) = derive(subFormulasList(k), trace, i)
     }
-    println("---4:subFormulasList-----"+subFormulasList)
-    println("---4:resolveList-----"+resolveList.toBuffer)
-    println("---4:deriveList-----"+deriveList.toBuffer)
-    println("---4:lastresolveList-----"+lastResolveList.toBuffer)
-    println("---4:lastderiveList-----"+lastDeriveList.toBuffer)
-    
-    println(formula)
-    println(subFormulasList)
-    formula =  deriveList(subFormulasList.indexOf(formula))
-    formula = simplifyAnalyzers.simplifyTorF(formula)  
-    
 //    println("---4:subFormulasList-----"+subFormulasList)
 //    println("---4:resolveList-----"+resolveList.toBuffer)
 //    println("---4:deriveList-----"+deriveList.toBuffer)
 //    println("---4:lastresolveList-----"+lastResolveList.toBuffer)
 //    println("---4:lastderiveList-----"+lastDeriveList.toBuffer)
-//    println("---4:formula-----"+formula)
-//    println("---4:lastFormula-----"+lastFormula)
+    
+    println(formula)
+    println(subFormulasList)
+//    formula =  deriveList(subFormulasList.indexOf(formula))
+    formula = findResult(formula)
+    formula = simplifyAnalyzers.simplifyTorF(formula)  
+    
+    println("---4:subFormulasList-----"+subFormulasList)
+    println("---4:resolveList-----"+resolveList.toBuffer)
+    println("---4:deriveList-----"+deriveList.toBuffer)
+    println("---4:lastresolveList-----"+lastResolveList.toBuffer)
+    println("---4:lastderiveList-----"+lastDeriveList.toBuffer)
+    println("---4:formula-----"+formula)
+    println("---4:lastFormula-----"+lastFormula)
     
     if (formula == True || formula == False) {
       return formula
@@ -341,7 +343,7 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
               if(tmpLower<0) tmpLower = 0
               val tmpPU = pU(Seq(tmpLower.toString(), tmpUpper.toString()), pu.left, pu.right)
               
-              formula1 = And(resolveList(subFormulasList.indexOf(pu.left)), resolveList(subFormulasList.indexOf(deriveList(subFormulasList.indexOf(pU))))) 
+              formula1 = And(resolveList(subFormulasList.indexOf(pu.left)), resolveList(subFormulasList.indexOf(deriveList(subFormulasList.indexOf(tmpPU))))) 
             }
             else{
               formula1 = False
@@ -442,6 +444,33 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
           println("5-9-result:"+tmpresult)
           if (tmpresult) True
           else False
+    }
+      
+    result
+  } 
+  
+  private def findResult(formula: Formula): Formula = {
+        
+    val result =
+      formula match {
+        case Not(child) =>
+          Not(findResult(child))
+
+        case And(left, right) =>
+          And(findResult(left), findResult(right))
+
+        case Or(left, right) =>
+          Or(findResult(left), findResult(right))
+
+        case Imply(left, right) =>
+          Or(Not(findResult(left)), findResult(right))
+
+        case True => True
+
+        case False => False
+        
+        case _ =>
+          deriveList(subFormulasList.indexOf(formula))
     }
       
     result

@@ -91,7 +91,9 @@ class FormulaEvaluator(val model: QueryModel, val fineCache: Boolean) extends Lo
           !evaluateFormula(left, state) || evaluateFormula(right, state)
 
         case pred: PredicateCall =>
-          evaluateFunction(pred, state).asInstanceOf[Boolean]
+          val tmp =evaluateFunction(pred, state).asInstanceOf[Boolean]
+          println("predicate:"+formula+"    "+tmp)
+          tmp
 
         case quantifier: Quantifier =>
           evaluateQuantifier(quantifier, state)

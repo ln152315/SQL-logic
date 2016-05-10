@@ -28,16 +28,17 @@ class ModelTest extends SQLTest {
 
 //    val querytest = sqlContext.sql("CREATE TEMPORARY TABLE test (key INT) USING org.apache.spark.sql.avro OPTIONS (path '../hive/src/test/resources/data/files/episodes.avro')")
 //    val plantest = querytest.queryExecution.analyzed
-//    val query = sqlContext.sql("select sum(count(customer.cid)) from customer join address where customer.aid>=address.aid")
+    val query = sqlContext.sql("select sum(count(customer.cid)) from customer join address on customer.aid=address.aid")
 //    val query = sqlContext.sql("select address.aid from customer join address on customer.aid=address.aid")
 //    val query = sqlContext.sql("select customer.cid from customer union select customer.age from customer union select address.aid from address ")
 //    val query = sqlContext.sql("select customer.cid, customer.name from customer order by customer.name, customer.cid DESC")
    LogicChecker.init(sqlContext)
 //    val query = sqlContext.sql("select customer.name, first(customer.age) from customer group by customer.name, customer.salary")
-    val query = sqlContext.sql("select na from (select concat(address.state, address.city) as na, address.aid as id from address ) as t1")
+//    val query = sqlContext.sql("select na from (select concat(address.state, address.city) as na, address.aid as id from address ) as t1")
     val plan = query.queryExecution.analyzed
     val model = QueryModel.fromQueryPlan(plan)
     model.preprocess(model.initialState, model.finalState)
+    model.setRole("owner")
     println(model.getTables)
      val evaluator = new FormulaEvaluator(model, true)
    val parser = new PolicyParser

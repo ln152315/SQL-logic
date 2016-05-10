@@ -5,6 +5,8 @@ define sort table class=edu.thu.ss.logic.example.TableSort
 define sort nodetype class=edu.thu.ss.logic.example.NodeTypeSort
 define sort operation class=edu.thu.ss.logic.example.OperationSort
 define sort order class=edu.thu.ss.logic.example.OrderSort
+define sort role class=edu.thu.ss.logic.example.RoleSort
+define sort purpose class=edu.thu.ss.logic.example.PurposeSort
 
 define function int add(int z, int y) class=edu.thu.ss.logic.example.Add
 
@@ -21,6 +23,9 @@ define predicate isAggregate(column c, operation op) class=edu.thu.ss.logic.exam
 define predicate isFilter(column c) class=edu.thu.ss.logic.example.isFilter
 define predicate isUnion(table t1, table t2) class=edu.thu.ss.logic.example.isUnion
 define predicate isJoin(table t1, table t2) class=edu.thu.ss.logic.example.isJoin
+define predicate isRole(role r) class=edu.thu.ss.logic.example.isRole
+define predicate isPurpose(purpose r) class=edu.thu.ss.logic.example.isPurpose
+define predicate isInQuery(column c, int z) class=edu.thu.ss.logic.example.isInQuery
 
 #policy
-r3: G[0,10](AG (isFinal()->!isProject("address.state")))
+r3: G[0,5](AG !isInQuery("customer.aid", 5))

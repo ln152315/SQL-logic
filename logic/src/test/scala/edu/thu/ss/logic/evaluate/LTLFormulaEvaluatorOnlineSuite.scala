@@ -29,13 +29,14 @@ class LTLFormulaEvaluatorOnlineSuite extends SQLTest {
         
       }
     }
-    val query1 = sqlContext.sql("select address.aid from customer join address on customer.aid=address.aid")
-    
+//    val query1 = sqlContext.sql("select address.aid from customer join address on customer.aid=address.aid")
+    val query1 = sqlContext.sql("select sum(count(customer.cid)) from customer join address where customer.aid=address.aid and customer.aid = 5")
+
     val plan1 = query1.queryExecution.analyzed
     val model1 = QueryModel.fromQueryPlan(plan1)
     model1.preprocess(model1.initialState, model1.finalState)
     model1.timestamp = 10
-    
+//    model1.setRole("owner")
     evaluators.foreach { e =>{
       val value = e.monitor(model1)
       val rule = e.name
