@@ -147,135 +147,52 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
     
     trace += model
 
-    
-//    println("---initial:subFormulasList-----"+subFormulasList)
-//    println("---initial:resolveList-----"+resolveList.toBuffer)
-//    println("---initial:deriveList-----"+deriveList.toBuffer)
-//    println("---initial:lastresolveList-----"+lastResolveList.toBuffer)
-//    println("---initial:lastderiveList-----"+lastDeriveList.toBuffer)
-//    println("---initial:formula-----"+formula)
-//    println("---initial:lastFormula-----"+lastFormula)
+    val simplifyAnalyzers = FormulaSimplifier()
+  
     var i = trace.length-2
-//    println("---index:-------:"+i)
-    
-    if(i<0){
-      i = 0
-      for (k<-0 until subFormulasList.length){
-        resolveList(k) = resolve(subFormulasList(k), trace, i)
-      }
-      for (k<-0 until subFormulasList.length){
-        deriveList(k) = derive(subFormulasList(k), trace, i)
-      }
+
+    if (i>=0){
+      resolveList = lastResolveList.clone()
+      deriveList = lastDeriveList.clone()
+      formula = lastFormula
+  
+      calResolveAndDerive(i)
       
-      
-//      formula =  deriveList(subFormulasList.indexOf(formula))
+      lastResolveList = resolveList.clone()
+      lastDeriveList = deriveList.clone()
+  
       formula = findResult(formula)
-      
-      val simplifyAnalyzers = FormulaSimplifier()
       formula = simplifyAnalyzers.simplifyTorF(formula)  
       
-      println("---0:subFormulasList-----"+subFormulasList)
-      println("---0:resolveList-----"+resolveList.toBuffer)
-      println("---0:deriveList-----"+deriveList.toBuffer)
-      println("---0:lastresolveList-----"+lastResolveList.toBuffer)
-      println("---0:lastderiveList-----"+lastDeriveList.toBuffer)
-      println("---0:formula-----"+formula)
-      println("---0:lastFormula-----"+lastFormula)
-      
+      lastFormula = formula
+        
       if (formula == True || formula == False) {
         return formula
       }
-      else{
-        return Unknown
-      }
-      
     }
-//    println("---1:subFormulasList-----"+subFormulasList)
-//    println("---1:resolveList-----"+resolveList.toBuffer)
-//    println("---1:deriveList-----"+deriveList.toBuffer)
-//    println("---1:lastresolveList-----"+lastResolveList.toBuffer)
-//    println("---1:lastderiveList-----"+lastDeriveList.toBuffer)
-//    println("---1:formula-----"+formula)
-//    println("---1:lastFormula-----"+lastFormula)
-    resolveList = lastResolveList.clone()
-    deriveList = lastDeriveList.clone()
-
-    formula = lastFormula
-    println("---2:subFormulasList-----"+subFormulasList)
-    println("---2:resolveList-----"+resolveList.toBuffer)
-    println("---2:deriveList-----"+deriveList.toBuffer)
-    println("---2:lastresolveList-----"+lastResolveList.toBuffer)
-    println("---2:lastderiveList-----"+lastDeriveList.toBuffer)
-    println("---2:formula-----"+formula)
-    println("---2:lastFormula-----"+lastFormula)
-    
-    
-    for (k<-0 until subFormulasList.length){
-      resolveList(k) = resolve(subFormulasList(k), trace, i)
-    }
-      
-    for (k<-0 until subFormulasList.length){
-      deriveList(k) = derive(subFormulasList(k), trace, i)
-    }
-    
-    lastResolveList = resolveList.clone()
-    lastDeriveList = deriveList.clone()
-
-//    formula =  deriveList(subFormulasList.indexOf(formula))
-    formula = findResult(formula)
-      
-    val simplifyAnalyzers = FormulaSimplifier()
-    formula = simplifyAnalyzers.simplifyTorF(formula)  
-    
-    lastFormula = formula
-    
-    println("---3:subFormulasList-----"+subFormulasList)
-    println("---3:resolveList-----"+resolveList.toBuffer)
-    println("---3:deriveList-----"+deriveList.toBuffer)
-    println("---3:lastresolveList-----"+lastResolveList.toBuffer)
-    println("---3:lastderiveList-----"+lastDeriveList.toBuffer)
-    println("---3:formula-----"+formula)
-    println("---3:lastFormula-----"+lastFormula)
-      
-    if (formula == True || formula == False) {
-      return formula
-    }
-    
     
     i += 1   
     
-    for (k<-0 until subFormulasList.length){
-      resolveList(k) = resolve(subFormulasList(k), trace, i)
-    }
-      
-    for (k<-0 until subFormulasList.length){
-      deriveList(k) = derive(subFormulasList(k), trace, i)
-    }
-//    println("---4:subFormulasList-----"+subFormulasList)
-//    println("---4:resolveList-----"+resolveList.toBuffer)
-//    println("---4:deriveList-----"+deriveList.toBuffer)
-//    println("---4:lastresolveList-----"+lastResolveList.toBuffer)
-//    println("---4:lastderiveList-----"+lastDeriveList.toBuffer)
+    calResolveAndDerive(i)
     
-    println(formula)
-    println(subFormulasList)
-//    formula =  deriveList(subFormulasList.indexOf(formula))
     formula = findResult(formula)
     formula = simplifyAnalyzers.simplifyTorF(formula)  
-    
-    println("---4:subFormulasList-----"+subFormulasList)
-    println("---4:resolveList-----"+resolveList.toBuffer)
-    println("---4:deriveList-----"+deriveList.toBuffer)
-    println("---4:lastresolveList-----"+lastResolveList.toBuffer)
-    println("---4:lastderiveList-----"+lastDeriveList.toBuffer)
-    println("---4:formula-----"+formula)
-    println("---4:lastFormula-----"+lastFormula)
     
     if (formula == True || formula == False) {
       return formula
     }
     else{
       return Unknown
+    }
+  }
+  
+  private def calResolveAndDerive(index: Int){
+    for (k<-0 until subFormulasList.length){
+      resolveList(k) = resolve(subFormulasList(k), trace, index)
+    }
+      
+    for (k<-0 until subFormulasList.length){
+      deriveList(k) = derive(subFormulasList(k), trace, index)
     }
   }
   
@@ -436,12 +353,8 @@ class LTLFormulaEvaluatorOnline(rule: Rule) extends Logging {
           
           
         case _ =>
-          println("5-9:"+index)
-//          println("5-9:"+trace(index))
-          println("5-9:"+formula)
           val modelEvaluator = new FormulaEvaluator(trace(index), true)
           val tmpresult = modelEvaluator.evaluate(formula)
-          println("5-9-result:"+tmpresult)
           if (tmpresult) True
           else False
     }

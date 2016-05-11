@@ -16,23 +16,24 @@ import edu.thu.ss.logic.paser.PolicyParser
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.types._;
 import org.apache.spark.sql.Row
+import org.apache.derby.jdbc.EmbeddedDriver;
 class ModelTest extends SQLTest {
   
   test("test1") {
 //      val query = sqlContext.sql("select substr(customer.name, 0) as id from customer ")
-
-//    val query = sqlContext.sql("CREATE TABLE IF NOT EXISTS employee ( eid int, name String,salary String, destignation String)")
+    val query = sqlContext.sql("CREATE TABLE IF NOT EXISTS src (key INT, value STRING)")
     
 //    val querytest = sqlContext.sql("CREATE TABLE dbgen_version(dv_version        VARCHAR(16),dv_create_date    timestamp,dv_create_time    TIMESTAMP,dv_cmdline_args   VARCHAR(200))")
 //    val query = sqlContext.sql("select customer.name, avg(customer.age) from customer group by customer.name, customer.salary")
 
 //    val querytest = sqlContext.sql("CREATE TEMPORARY TABLE test (key INT) USING org.apache.spark.sql.avro OPTIONS (path '../hive/src/test/resources/data/files/episodes.avro')")
 //    val plantest = querytest.queryExecution.analyzed
-    val query = sqlContext.sql("select sum(count(customer.cid)) from customer join address on customer.aid=address.aid")
+//    val query = sqlContext.sql("select sum(count(customer.cid)) from customer join address on customer.aid=address.aid")
 //    val query = sqlContext.sql("select address.aid from customer join address on customer.aid=address.aid")
 //    val query = sqlContext.sql("select customer.cid from customer union select customer.age from customer union select address.aid from address ")
 //    val query = sqlContext.sql("select customer.cid, customer.name from customer order by customer.name, customer.cid DESC")
-   LogicChecker.init(sqlContext)
+  /*
+    LogicChecker.init(sqlContext)
 //    val query = sqlContext.sql("select customer.name, first(customer.age) from customer group by customer.name, customer.salary")
 //    val query = sqlContext.sql("select na from (select concat(address.state, address.city) as na, address.aid as id from address ) as t1")
     val plan = query.queryExecution.analyzed
@@ -51,7 +52,7 @@ class ModelTest extends SQLTest {
         println(rule.formula.treeString)
       }
     }
-    
+    */
 //
 //    println("------model:"+model)
 //

@@ -8,15 +8,15 @@ import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.DataFrame
-//import org.apache.spark.sql.hive.HiveContext
+import org.apache.spark.sql.hive.HiveContext
 
 
 abstract class SQLTest extends FunSuite {
   lazy val sparkContext = SQLTest._sparkContext
 
-  lazy val sqlContext = SQLTest._sqlContext
+//  lazy val sqlContext = SQLTest._sqlContext
 
-//  lazy val hiveContext = SQLTest._hiveContext
+  lazy val sqlContext = new HiveContext(sparkContext)
 
 }
 
@@ -28,15 +28,15 @@ object SQLTest {
     new SparkContext(conf)
   }
 
-  lazy val _sqlContext = {
-    val context = new SQLContext(_sparkContext)
-    val customer = LocalRelation('cid.int, 'name.string, 'age.int, 'salary.double, 'aid.int)
-    new DataFrame(context, customer).registerTempTable("customer")
-    val address = LocalRelation('aid.int, 'state.string, 'city.string, 'street.string, 'zip.string)
-    new DataFrame(context, address).registerTempTable("address")
-
-    context
-  }
+//  lazy val _sqlContext = {
+//    val context = new SQLContext(_sparkContext)
+//    val customer = LocalRelation('cid.int, 'name.string, 'age.int, 'salary.double, 'aid.int)
+//    new DataFrame(context, customer).registerTempTable("customer")
+//    val address = LocalRelation('aid.int, 'state.string, 'city.string, 'street.string, 'zip.string)
+//    new DataFrame(context, address).registerTempTable("address")
+//
+//    context
+//  }
   
 //  lazy val _hiveContext = {
 //    var hiveContext = new HiveContext(_sparkContext)
