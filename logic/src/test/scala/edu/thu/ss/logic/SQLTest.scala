@@ -16,7 +16,7 @@ abstract class SQLTest extends FunSuite {
 
 //  lazy val sqlContext = SQLTest._sqlContext
 
-  lazy val sqlContext = new HiveContext(sparkContext)
+  lazy val sqlContext = SQLTest._hiveContext
 
 }
 
@@ -38,9 +38,10 @@ object SQLTest {
 //    context
 //  }
   
-//  lazy val _hiveContext = {
-//    var hiveContext = new HiveContext(_sparkContext)
-//    hiveContext
-//  }
+  lazy val _hiveContext = {
+    var hiveContext = new HiveContext(_sparkContext)
+    hiveContext.setConf("hive.metastore.warehouse.dir", "/Users/ln/metastore")
+    hiveContext
+  }
 
 }

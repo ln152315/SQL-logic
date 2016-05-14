@@ -20,9 +20,52 @@ import org.apache.derby.jdbc.EmbeddedDriver;
 class ModelTest extends SQLTest {
   
   test("test1") {
+    LogicChecker.init(sqlContext)
 //      val query = sqlContext.sql("select substr(customer.name, 0) as id from customer ")
-    val query = sqlContext.sql("CREATE TABLE IF NOT EXISTS src (key INT, value STRING)")
-    
+//    val query = sqlContext.sql("CREATE TABLE IF NOT EXISTS src (key INT, value STRING)")
+//    val plan = query.queryExecution.analyzed
+//    val query1 = sqlContext.sql("select unix_timestamp('2011-12-07 13:01:03') from src")
+    println(LogicChecker.getDatabaseSchema("default"))
+    val query1 = sqlContext.sql("""SELECT i_item_desc
+		,i_category
+		,i_class
+		,i_current_price
+		,SUM(cs_ext_sales_price) AS itemrevenue
+		,SUM(cs_ext_sales_price) * 100 / SUM(SUM(cs_ext_sales_price)) AS revenueratio
+	FROM catalog_sales
+	JOIN item
+	JOIN date_dim
+	WHERE cs_item_sk = i_item_sk
+		AND i_category IN (
+			'Shoes'
+			,'Women'
+			,'Music'
+			)
+		AND cs_sold_date_sk = d_date_sk
+		AND unix_timestamp(d_date, 'yyyy-MM-dd') >= unix_timestamp('1999-06-03', 'yyyy-MM-dd')
+		AND unix_timestamp(d_date, 'yyyy-MM-dd') <= unix_timestamp('1999-06-03', 'yyyy-MM-dd')
+	GROUP BY i_item_id
+		,i_item_desc
+		,i_category
+		,i_class
+		,i_current_price
+	ORDER BY i_category
+		,i_class
+		,i_item_id
+		,i_item_desc
+		,revenueratio""")
+//    val plan1 = query1.queryExecution.analyzed
+//   
+//    println(plan)
+//    println(plan1)
+//    println(sqlContext.tables())
+//    println(sqlContext.tables("default"))
+//    println(sqlContext.tableNames())
+//    println(sqlContext.tableNames("default"))
+//    println(sqlContext.table("src").schema)
+//    
+//    val model = QueryModel.fromQueryPlan(plan1)
+//    model.preprocess(model.initialState, model.finalState)
 //    val querytest = sqlContext.sql("CREATE TABLE dbgen_version(dv_version        VARCHAR(16),dv_create_date    timestamp,dv_create_time    TIMESTAMP,dv_cmdline_args   VARCHAR(200))")
 //    val query = sqlContext.sql("select customer.name, avg(customer.age) from customer group by customer.name, customer.salary")
 

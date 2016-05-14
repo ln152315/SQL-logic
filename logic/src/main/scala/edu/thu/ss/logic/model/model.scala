@@ -5,7 +5,6 @@ import org.apache.spark.sql.SQLContext
 import edu.thu.ss.logic.tree.DoubleNode
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import scala.collection.mutable.ListBuffer
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.plans.logical.BinaryNode
 import org.apache.spark.sql.catalyst.plans.logical.UnaryNode
 import org.apache.spark.sql.catalyst.plans.logical.LeafNode
@@ -20,9 +19,9 @@ import org.apache.spark.sql.catalyst.expressions.NamedExpression
 import org.apache.spark.sql.catalyst.plans.logical.Aggregate
 import org.apache.spark.sql.catalyst.plans.logical.Filter
 import org.apache.spark.sql.catalyst.plans.logical.Union
+import org.apache.spark.sql.hive.MetastoreRelation
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.types._;
-import org.apache.spark.sql.SQLContext
 import edu.thu.ss.logic.formula.Formula
 import java.util.Date
 
@@ -167,13 +166,14 @@ case class QueryModel(initialState: State, finalState: State) {
     println("Unions:"+unions)
     println("Joins:"+joins)
     println("Alias:"+alias)
+    println("Tables:"+tables)
     println("Columns:"+columns)
     println("ColumnsExpr:"+columnsExpr)
   }
  
   def preprocessAccess(initialState: State) {
     // accessed tables   
-    var alltables = LogicChecker.getDatabaseSchema("")
+    var alltables = LogicChecker.getDatabaseSchema("default")
     alltables.foreach{f => initialState.parents.foreach { x => {
       if(f._2.equals(x.plan.schema))
         tables += f._1
@@ -191,17 +191,17 @@ case class QueryModel(initialState: State, finalState: State) {
   
   def mapFromColumnToExpr(initialState: State){
     initialState.parents.foreach { x => 
-      val lr = x.plan.asInstanceOf[LocalRelation]
-      val tableName = getTableNameFromLocation(lr)
+      val lr = x.plan
+      val tableName = getTableNameFromRelation(lr)
         if(tableName!=null){
           lr.output.foreach { c => columnsExpr(tableName+"."+c.name) = c.toString() }
         }
       }
   }
   
-  def getTableNameFromLocation(lr: LocalRelation): String ={
+  def getTableNameFromRelation(lr: LogicalPlan): String ={
     // accessed tables   
-    var alltables = LogicChecker.getDatabaseSchema("")
+    var alltables = LogicChecker.getDatabaseSchema("default")
     alltables.find{f => f._2.equals(lr.schema)
       } match{
         case Some(s) => s._1
@@ -217,7 +217,11 @@ case class QueryModel(initialState: State, finalState: State) {
       case f: Filter =>
         println("Filter:"+f)
         preprocessUnionOrJoin(state.asInstanceOf[UnaryState].child)
-      case r: LocalRelation =>   
+//      case m: MetastoreRelation =>
+//        println("LocalRelation")
+//        ListBuffer(m.schema)
+      case r: LocalRelation => 
+        println("LocalRelation")
         ListBuffer(r.schema)
       case u: Union => 
         leftTable = preprocessUnionOrJoin(state.asInstanceOf[BinaryState].left)
@@ -252,19 +256,24 @@ case class QueryModel(initialState: State, finalState: State) {
           }
         preprocessUnionOrJoin(state.asInstanceOf[UnaryState].child)
       
-      case unary: UnaryNode => 
+      case unary: UnaryNode =>
+        println(unary.nodeName)
         preprocessUnionOrJoin(state.asInstanceOf[UnaryState].child)
       
       case binary: BinaryNode => 
         preprocessUnionOrJoin(state.asInstanceOf[BinaryState].left) ++ preprocessUnionOrJoin(state.asInstanceOf[BinaryState].right)
-        
+      
+      case _ =>
+        println(state.plan.nodeName)
+        ListBuffer(state.plan.schema)
+       
     }
     
     
   }
   
   def getTableName(left: StructType, right: StructType): (String, String) ={
-    var alltables = LogicChecker.getDatabaseSchema("")
+    var alltables = LogicChecker.getDatabaseSchema("default")
     val leftName = alltables.find{ p => p._2.equals(left)} match{
       case None => null
       case Some(s) => s._1
@@ -319,6 +328,10 @@ object QueryModel {
         val state = LeafState(initialState, leaf)
         initialState.parents += state
         state
+//      case _ => 
+//        val state = LeafState(initialState, _.asInstanceOf[LeafNode])
+//        initialState.parents += state
+//        state
     }
   }
 
